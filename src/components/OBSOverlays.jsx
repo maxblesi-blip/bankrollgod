@@ -13,7 +13,7 @@ const getApiBaseUrl = () => {
     return 'http://localhost:3001';
   } else {
     // Production API URL - ersetze mit deiner echten Backend URL
-    return 'https://your-backend.vercel.app';
+    return process.env.REACT_APP_BACKEND_URL || 'https://bankrollgod-backend.onrender.com';
   }
 };
 
