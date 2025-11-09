@@ -10,7 +10,7 @@ const getApiBaseUrl = () => {
   const hostname = window.location.hostname;
   
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:3001';
+    return 'http://localhost:5000';  // ✅ KORRIGIERT: Port 5000 statt 3001
   } else {
     // Production API URL - ersetze mit deiner echten Backend URL
     return process.env.REACT_APP_BACKEND_URL || 'https://bankrollgod-backend.onrender.com';
@@ -100,7 +100,7 @@ const globalCSS = `
   }
 `;
 
-// Hook für Live-Daten mit Bankroll-Parameter und Production API
+// ✅ Hook für Live-Daten - KORRIGIERTE VERSION
 const useLiveData = (bankrollId) => {
   const [data, setData] = useState({
     activeSession: {
@@ -126,101 +126,52 @@ const useLiveData = (bankrollId) => {
     const fetchBankrollData = async () => {
       try {
         if (bankrollId && apiBaseUrl) {
-          console.log(`Fetching data for bankroll ${bankrollId} from ${apiBaseUrl}`);
+          console.log(`🎥 Fetching OBS data for bankroll ${bankrollId} from ${apiBaseUrl}`);
           
-          // Parallel API calls für bessere Performance
+          // ✅ Neue OBS-Endpoints verwenden
           const [bankrollResponse, sessionResponse] = await Promise.all([
-            fetch(`${apiBaseUrl}/api/bankrolls/${bankrollId}`, {
-              headers: {
-                'Content-Type': 'application/json',
-              }
-            }),
-            fetch(`${apiBaseUrl}/api/bankrolls/${bankrollId}/sessions/active`, {
-              headers: {
-                'Content-Type': 'application/json',
-              }
-            })
+            fetch(`${apiBaseUrl}/api/obs/bankroll/${bankrollId}`),
+            fetch(`${apiBaseUrl}/api/obs/session/${bankrollId}/active`)
           ]);
           
-          if (bankrollResponse.ok) {
-            const bankroll = await bankrollResponse.json();
-            const session = sessionResponse.ok ? await sessionResponse.json() : null;
+          if (bankrollResponse.ok && sessionResponse.ok) {
+            const bankrollResult = await bankrollResponse.json();
+            const sessionResult = await sessionResponse.json();
             
-            const sessionData = session ? {
-              total_buyins: session.total_buyins || 0,
-              total_cashes: session.total_cashes || 0,
-              cash_count: session.cash_count || 0,
-              session_name: session.name || "Aktive Session",
-              profit: (session.total_cashes || 0) - (session.total_buyins || 0)
-            } : {
-              total_buyins: 0,
-              total_cashes: 0,
-              cash_count: 0,
-              session_name: "Keine aktive Session",
-              profit: 0
-            };
-            
-            setData({
-              activeSession: sessionData,
-              activeBankroll: {
-                name: bankroll.name,
-                current_amount: bankroll.current_amount,
-                starting_amount: bankroll.starting_amount,
-                currency: bankroll.currency || 'EUR'
-              },
-              isLoading: false,
-              lastUpdate: new Date().toLocaleTimeString()
-            });
-            
-            console.log('✅ Data loaded successfully:', {
-              bankroll: bankroll.name,
-              session: sessionData.session_name,
-              buyins: sessionData.total_buyins,
-              cashes: sessionData.total_cashes
-            });
-            
-          } else {
-            throw new Error(`Bankroll API error: ${bankrollResponse.status}`);
+            if (bankrollResult.success && sessionResult.success) {
+              setData({
+                activeSession: sessionResult.data,
+                activeBankroll: bankrollResult.data,
+                isLoading: false,
+                lastUpdate: new Date().toLocaleTimeString()
+              });
+              
+              console.log('✅ Live data loaded:', bankrollResult.data.name);
+              return;
+            }
           }
-        } else {
-          // Fallback zu Demo-Daten wenn keine Bankroll-ID oder API offline
-          const demoData = {
-            activeSession: {
-              total_buyins: 150.00,
-              total_cashes: 280.00,
-              cash_count: 3,
-              session_name: bankrollId ? "Demo Session (ID: " + bankrollId + ")" : "Demo Session",
-              profit: 130.00
-            },
-            activeBankroll: {
-              name: "GGPoker Demo",
-              current_amount: 850.00,
-              starting_amount: 700.00,
-              currency: "EUR"
-            },
-            isLoading: false,
-            lastUpdate: new Date().toLocaleTimeString()
-          };
           
-          setData(demoData);
-          console.log('📊 Using demo data:', demoData);
+          throw new Error(`API Error: ${bankrollResponse.status}/${sessionResponse.status}`);
+          
+        } else {
+          throw new Error('No bankroll ID provided');
         }
       } catch (error) {
-        console.error('❌ API fetch error:', error);
+        console.error('❌ OBS API Error:', error);
         
-        // Fallback zu Demo-Daten bei API-Fehlern
+        // Fallback nur bei Fehlern
         setData({
           activeSession: {
-            total_buyins: 150.00,
-            total_cashes: 280.00,
-            cash_count: 3,
-            session_name: `Demo (API Offline)`,
-            profit: 130.00
+            total_buyins: 0,
+            total_cashes: 0,
+            cash_count: 0,
+            session_name: `Offline (${bankrollId || 'No ID'})`,
+            profit: 0
           },
           activeBankroll: {
-            name: "Demo Bankroll",
-            current_amount: 850.00,
-            starting_amount: 700.00,
+            name: `Bankroll ${bankrollId || 'Unknown'} (Offline)`,
+            current_amount: 0,
+            starting_amount: 0,
             currency: "EUR"
           },
           isLoading: false,
